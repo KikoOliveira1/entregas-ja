@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Central do Motoboy - Entregas Já</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .container { background: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 350px; }
+        h2 { color: #1e293b; margin-top: 0; text-align: center; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px; }
+        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        .btn { background-color: #2563eb; color: white; border: none; padding: 10px; width: 100%; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .btn:hover { background-color: #1d4ed8; }
+        #mensagem-erro { color: red; font-size: 13px; text-align: center; margin-top: 10px; }
+        #painel-logado { display: none; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Ecrã de Login -->
+        <div id="ecra-login">
+            <h2>Central do Motoboy 🏍️</h2>
+            <p style="text-align: center; color: #666; font-size: 13px;">Login do Motoboy</p>
+            
+            <div class="form-group">
+                <label for="utilizador">Utilizador:</label>
+                <input type="text" id="utilizador" placeholder="Ex: KikoOliveira">
+            </div>
+
+            <div class="form-group">
+                <label for="senha">Palavra-passe:</label>
+                <input type="password" id="senha" placeholder="Sua senha">
+            </div>
+
+            <button class="btn" onclick="fazerLoginMotoboy()">Entrar</button>
+            <div id="mensagem-erro"></div>
+        </div>
+
+        <!-- Painel Interno do Motoboy (Aparece após o login) -->
+        <div id="painel-logado">
+            <h2>Bem-vindo, <span id="nome-motoboy"></span>! 🛵</h2>
+            <p>Veículo: <b id="veiculo-motoboy"></b></p>
+            <p>Status atual: <b id="status-motoboy" style="color: green;">Online</b></p>
+            <button class="btn" style="background-color: #dc2626; margin-top: 15px;" onclick="sair()">Terminar Sessão</button>
+        </div>
+    </div>
+
+    <script>
+        async function fazerLoginMotoboy() {
+            const utilizador = document.getElementById('utilizador').value.trim();
+            const senha = document.getElementById('senha').value.trim();
+            const erroDiv = document.getElementById('mensagem-erro');
+
+            erroDiv.innerText = "";
+
+            if (!utilizador || !senha) {
+                erroDiv.innerText = "Por favor, preencha todos os campos.";
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/login/motoboy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ utilizador, senha })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Esconde login e mostra o painel do motoboy
+                    document.getElementById('ecra-login').style.display = 'none';
+                    document.getElementById('painel-logado').style.display = 'block';
+                    
+                    document.getElementById('nome-motoboy').innerText = data.motoboy.nome;
+                    document.getElementById('veiculo-motoboy').innerText = data.motoboy.veiculo;
+                    document.getElementById('status-motoboy').innerText = data.motoboy.status;
+                } else {
+                    erroDiv.innerText = data.detail || "Erro ao efetuar login.";
+                }
+            } catch (error) {
+                console.error("Erro:", error);
+                erroDiv.innerText = "Não foi possível ligar ao servidor.";
+            }
+        }
+
+        function sair() {
+            window.location.reload();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Central do Comerciante - Entregas Já</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 1100px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2, h3 { color: #1e293b; }
+        .grid-painel { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .grid-painel { grid-template-columns: 1fr; } }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 14px; }
+        input, textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn { background-color: #2563eb; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: bold; }
+        .btn:hover { background-color: #1d4ed8; }
+        .btn-danger { background-color: #dc2626; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
+        th { background-color: #f1f5f9; }
+        #map { height: 350px; border-radius: 8px; width: 100%; margin-top: 10px; }
+        #ecra-login { width: 350px; margin: 100px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); text-align: center; }
+        #ecra-login input { width: 90%; margin: 10px 0; padding: 10px; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="ecra-login">
+        <h2>Central do Comerciante 🏪</h2>
+        <input type="text" id="utilizador" placeholder="Nome do Comércio">
+        <input type="password" id="senha" placeholder="Palavra-passe">
+        <button class="btn" style="width: 100%;" onclick="fazerLogin()">Entrar</button>
+        <p id="erro-login" style="color: red; font-size: 12px; margin-top: 10px;"></p>
+    </div>
+
+    <div id="painel-logado" class="container hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>Loja: <span id="titulo-loja"></span></h2>
+            <button class="btn btn-danger" onclick="sair()">Terminar Sessão</button>
+        </div>
+        <p>Categoria: <b id="cat-loja"></b> | Endereço: <b id="end-loja"></b></p>
+        <hr style="margin: 20px 0;">
+
+        <div class="grid-painel">
+            <div>
+                <h3>Adicionar Novo Pedido / Entrega</h3>
+                <div class="form-group">
+                    <label>Nome do Cliente:</label>
+                    <input type="text" id="cli-nome" placeholder="Ex: João Silva">
+                </div>
+                <div class="form-group">
+                    <label>Endereço de Entrega:</label>
+                    <input type="text" id="cli-endereco" placeholder="Ex: Rua Principal, 123">
+                </div>
+                <div class="form-group">
+                    <label>Descrição do Pedido:</label>
+                    <textarea id="cli-descricao" placeholder="Ex: 1x Pizza Calabresa"></textarea>
+                </div>
+                <button class="btn" onclick="criarEntrega()">Registar Pedido</button>
+            </div>
+
+            <div>
+                <h3>Monitorização de Motoboys (Satélite)</h3>
+                <div id="map"></div>
+            </div>
+        </div>
+
+        <h3 style="margin-top: 30px;">Pedidos Registados da Loja</h3>
+        <table>
+            <thead>
+                <tr><th>Cliente</th><th>Endereço</th><th>Descrição</th><th>Status</th><th>Ações</th></tr>
+            </thead>
+            <tbody id="tabela-entregas"></tbody>
+        </table>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let comercioAtual = null;
+        let map = null;
+        let marcadoresMotoboys = {};
+
+        async function fazerLogin() {
+            const utilizador = document.getElementById('utilizador').value.trim();
+            const senha = document.getElementById('senha').value.trim();
+            try {
+                const res = await fetch('/api/login/comercio', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({utilizador, senha})
+                });
+                const data = await res.json();
+                if(res.ok) {
+                    comercioAtual = data.comercio;
+                    document.getElementById('ecra-login').classList.add('hidden');
+                    document.getElementById('painel-logado').classList.remove('hidden');
+                    document.getElementById('titulo-loja').innerText = comercioAtual.nome;
+                    document.getElementById('cat-loja').innerText = comercioAtual.categoria;
+                    document.getElementById('end-loja').innerText = comercioAtual.endereco;
+                    inicializarMapa();
+                    carregarEntregas();
+                } else {
+                    document.getElementById('erro-login').innerText = data.detail || "Erro no login.";
+                }
+            } catch(e) { document.getElementById('erro-login').innerText = "Erro de conexão."; }
+        }
+
+        function inicializarMapa() {
+            if(!map) {
+                map = L.map('map').setView([-26.1264, -48.6183], 13);
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    maxZoom: 19,
+                    attribution: 'Tiles &copy; Esri'
+                }).addTo(map);
+                L.marker([-26.1264, -48.6183]).addTo(map).bindPopup(`<b>${comercioAtual.nome}</b>`).openPopup();
+                setInterval(atualizarMotoboysNoMapa, 5000);
+            }
+        }
+
+        async function atualizarMotoboysNoMapa() {
+            try {
+                const res = await fetch('/api/motoboys/online');
+                const motoboys = await res.json();
+                motoboys.forEach(m => {
+                    if (m.status === "online" && m.lat && m.lng) {
+                        if (marcadoresMotoboys[m.id]) {
+                            marcadoresMotoboys[m.id].setLatLng([m.lat, m.lng]);
+                        } else {
+                            const marker = L.marker([m.lat, m.lng]).addTo(map)
+                                .bindPopup(`<b>${m.nome}</b><br>Veículo: ${m.veiculo}`);
+                            marcadoresMotoboys[m.id] = marker;
+                        }
+                    } else if (marcadoresMotoboys[m.id]) {
+                        map.removeLayer(marcadoresMotoboys[m.id]);
+                        delete marcadoresMotoboys[m.id];
+                    }
+                });
+            } catch(e) { console.error("Erro ao atualizar motoboys", e); }
+        }
+
+        async function carregarEntregas() {
+            try {
+                const res = await fetch('/api/entregas');
+                const lista = await res.json();
+                let tbody = '';
+                lista.forEach(e => {
+                    if(e.comercio.toLowerCase() === comercioAtual.nome.toLowerCase()) {
+                        tbody += `<tr>
+                            <td>${e.cliente}</td>
+                            <td>${e.endereco_entrega}</td>
+                            <td>${e.descricao}</td>
+                            <td><b>${e.status}</b></td>
+                            <td><button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="excluirEntrega('${e.id}')">Excluir</button></td>
+                        </tr>`;
+                    }
+                });
+                document.getElementById('tabela-entregas').innerHTML = tbody || '<tr><td colspan="5" style="text-align:center;">Nenhum pedido registado.</td></tr>';
+            } catch(e) { console.error("Erro ao carregar entregas", e); }
+        }
+
+        async function criarEntrega() {
+            const cliente = document.getElementById('cli-nome').value.trim();
+            const endereco_entrega = document.getElementById('cli-endereco').value.trim();
+            const descricao = document.getElementById('cli-descricao').value.trim();
+
+            if(!cliente || !endereco_entrega || !descricao) {
+                alert('Preencha todos os campos do pedido.');
+                return;
+            }
+
+            const res = await fetch('/api/entregas', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ comercio: comercioAtual.nome, cliente, endereco_entrega, descricao, status: 'Pendente' })
+            });
+
+            if(res.ok) {
+                document.getElementById('cli-nome').value = '';
+                document.getElementById('cli-endereco').value = '';
+                document.getElementById('cli-descricao').value = '';
+                carregarEntregas();
+            } else { alert('Erro ao registar pedido.'); }
+        }
+
+        async function excluirEntrega(id) {
+            if(confirm('Deseja excluir este pedido?')) {
+                await fetch(`/api/entregas/${id}`, {method: 'DELETE'});
+                carregarEntregas();
+            }
+        }
+
+        function sair() { window.location.reload(); }
+    </script>
+</body>
+</html>
