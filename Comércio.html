@@ -32,8 +32,7 @@
     <div class="container">
         <h2>Painel do Comerciante 🏪</h2>
 
-        <!-- Mapa Geral em Tempo Real para o Comerciante -->
-        <h3>Radar de Motoboys e Entregas</h3>
+        <h3>Radar de Motoboys e Entregas (Satélite)</h3>
         <div id="mapa-comercio-geral"></div>
         
         <div style="background: #e9ecef; padding: 15px; border-radius: 6px; margin-bottom: 25px;">
@@ -79,8 +78,10 @@
         function inicializarMapaComercioGeral() {
             if (mapComercioGeral) return;
             mapComercioGeral = L.map('mapa-comercio-geral').setView([-26.1333, -48.5833], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
+            
+            // Camada de Satélite da Esri (Evita erro 403 do OpenStreetMap)
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri'
             }).addTo(mapComercioGeral);
         }
 
@@ -149,7 +150,7 @@
             event.preventDefault();
             const novoPedido = {
                 id: String(Math.floor(100 + Math.random() * 900)),
-                comercio_nome: document.getElementById("comercio_nome").value,
+                comercio_nome: document.getElementById("comercio_nome",).value,
                 endereco_retirada: document.getElementById("endereco_retirada").value,
                 endereco_entrega: document.getElementById("endereco_entrega").value,
                 valor: document.getElementById("valor").value,

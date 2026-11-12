@@ -23,9 +23,9 @@
 <body>
     <div class="container">
         <h2>Painel do Administrador 👁️‍🗨️</h2>
-        <p style="text-align: center; color: #666;">Monitoramento em tempo real: Motoboys, Comércios e Entregas.</p>
+        <p style="text-align: center; color: #666;">Monitoramento em tempo real: Motoboys, Comércios e Entregas (Modo Satélite).</p>
         
-        <h3>Mapa Geral da Operação</h3>
+        <h3>Mapa Geral da Operação (Satélite)</h3>
         <div id="mapa-geral"></div>
 
         <h3>Todos os Pedidos no Sistema</h3>
@@ -44,8 +44,10 @@
         function inicializarMapaGeral() {
             if (mapGeral) return;
             mapGeral = L.map('mapa-geral').setView([-26.1333, -48.5833], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
+            
+            // Camada de Satélite da Esri
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
             }).addTo(mapGeral);
         }
 
@@ -113,3 +115,4 @@
     </script>
 </body>
 </html>
+
