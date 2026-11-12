@@ -1,281 +1,115 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Administração - Entregas Já</title>
+    <title>Painel do Administrador - Entregas Já</title>
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 0; }
-        header { background-color: #1e293b; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
-        .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
-        .card { background: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .btn { background-color: #2563eb; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 13px; margin: 2px; }
-        .btn:hover { background-color: #1d4ed8; }
-        .btn-danger { background-color: #dc2626; }
-        .btn-danger:hover { background-color: #b91c1c; }
-        .btn-success { background-color: #16a34a; }
-        .btn-success:hover { background-color: #15803d; }
-        input { padding: 8px; margin: 4px; border: 1px solid #ccc; border-radius: 4px; width: 200px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px; }
-        th { background-color: #f1f5f9; }
-        #map { height: 300px; border-radius: 8px; width: 100%; margin-top: 10px; }
-        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.9); display: flex; justify-content: center; align-items: center; z-index: 9999; }
-        .login-box { background: white; padding: 30px; border-radius: 8px; width: 300px; text-align: center; }
-        .login-box input { width: 90%; padding: 10px; margin: 10px 0; }
-        .hidden { display: none !important; }
+        body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h2, h3 { color: #333; text-align: center; }
+        #mapa-geral { width: 100%; height: 350px; border-radius: 8px; margin-bottom: 25px; border: 1px solid #ccc; }
+        .card-pedido { border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-bottom: 15px; background: #fafafa; }
+        .status-pendente { color: #e0a800; font-weight: bold; }
+        .status-aceito { color: #28a745; font-weight: bold; }
+        .status-cancelado { color: #dc3545; font-weight: bold; }
+        .log-chat { background: #fff; border: 1px solid #e0e0e0; padding: 8px; border-radius: 4px; margin-top: 8px; font-size: 13px; }
+        .alerta-destaque { color: #dc3545; font-weight: bold; }
+        .btn-voltar { display: block; text-align: center; background: #6c757d; color: white; padding: 10px; text-decoration: none; border-radius: 5px; margin-top: 20px; font-weight: bold; }
     </style>
 </head>
 <body>
+    <div class="container">
+        <h2>Painel do Administrador 👁️‍🗨️</h2>
+        <p style="text-align: center; color: #666;">Monitoramento em tempo real: Motoboys, Comércios e Entregas.</p>
+        
+        <h3>Mapa Geral da Operação</h3>
+        <div id="mapa-geral"></div>
 
-    <!-- LOGIN ADMIN -->
-    <div id="login-overlay">
-        <div class="login-box">
-            <h2>Painel Restrito</h2>
-            <p>Credenciais de Administrador</p>
-            <input type="text" id="login-user" placeholder="Utilizador (admin)" value="admin">
-            <input type="password" id="login-pass" placeholder="Palavra-passe (Fer1406)" value="Fer1406">
-            <button class="btn btn-success" style="width: 100%; padding: 10px;" onclick="fazerLogin()">Entrar</button>
-            <p id="login-erro" style="color: red; font-size: 12px; margin-top: 10px;"></p>
-        </div>
+        <h3>Todos os Pedidos no Sistema</h3>
+        <div id="lista-admin">A carregar dados...</div>
+
+        <a href="index.html" class="btn-voltar">Voltar à Página Inicial</a>
     </div>
 
-    <!-- PAINEL PRINCIPAL -->
-    <div id="admin-panel" class="hidden">
-        <header>
-            <h2 style="margin: 0; font-size: 18px;">Entregas Já - Gestão Completa</h2>
-            <button class="btn btn-danger" onclick="sair()">Terminar Sessão</button>
-        </header>
-
-        <div class="container">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                <div class="card">
-                    <h2>Métricas Gerais</h2>
-                    <p>Total de Motoboys: <b id="stat-motoboys">0</b></p>
-                    <p>Total de Comércios: <b id="stat-comercios">0</b></p>
-                    <button class="btn" onclick="carregarTudo()">Atualizar Métricas</button>
-                </div>
-                <div class="card">
-                    <h2>Monitorização (Satélite)</h2>
-                    <div id="map"></div>
-                </div>
-            </div>
-
-            <!-- MOTOBOYS -->
-            <div class="card">
-                <h2>Gerir Motoboys</h2>
-                <div style="margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 5px;">
-                    <input type="text" id="moto-nome" placeholder="Nome do Motoboy">
-                    <input type="text" id="moto-veiculo" placeholder="Veículo (ex: CG 160)">
-                    <input type="text" id="moto-telefone" placeholder="Telefone">
-                    <input type="password" id="moto-senha" placeholder="Senha de acesso">
-                    <button class="btn btn-success" onclick="salvarMotoboy()">Salvar Motoboy</button>
-                    <input type="hidden" id="moto-edit-id">
-                </div>
-                <table>
-                    <thead>
-                        <tr><th>Nome</th><th>Veículo</th><th>Telefone</th><th>Senha</th><th>Status</th><th>Ações</th></tr>
-                    </thead>
-                    <tbody id="tabela-motoboys"></tbody>
-                </table>
-            </div>
-
-            <!-- COMÉRCIOS -->
-            <div class="card">
-                <h2>Gerir Comércios / Lojas</h2>
-                <div style="margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 5px;">
-                    <input type="text" id="com-nome" placeholder="Nome do Comércio">
-                    <input type="text" id="com-endereco" placeholder="Endereço">
-                    <input type="text" id="com-categoria" placeholder="Categoria (ex: Restaurante)">
-                    <input type="password" id="com-senha" placeholder="Senha de acesso">
-                    <button class="btn btn-success" onclick="salvarComercio()">Salvar Comércio</button>
-                    <input type="hidden" id="com-edit-id">
-                </div>
-                <table>
-                    <thead>
-                        <tr><th>Nome</th><th>Endereço</th><th>Categoria</th><th>Senha</th><th>Ações</th></tr>
-                    </thead>
-                    <tbody id="tabela-comercios"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        let map;
+        const API_URL = "https://entregas-ja.onrender.com";
+        let mapGeral = null;
+        let camadasMarkers = [];
 
-        async function fazerLogin() {
-            const utilizador = document.getElementById('login-user').value;
-            const senha = document.getElementById('login-pass').value;
+        function inicializarMapaGeral() {
+            if (mapGeral) return;
+            mapGeral = L.map('mapa-geral').setView([-26.1333, -48.5833], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(mapGeral);
+        }
+
+        async function carregarAdmin() {
             try {
-                const res = await fetch('/api/admin/login', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({utilizador, senha})
-                });
-                if(res.ok) {
-                    document.getElementById('login-overlay').classList.add('hidden');
-                    document.getElementById('admin-panel').classList.remove('hidden');
-                    inicializarMapa();
-                    carregarTudo();
-                } else {
-                    document.getElementById('login-erro').innerText = "Credenciais inválidas!";
+                const res = await fetch(`${API_URL}/api/monitoramento/geral`);
+                const dados = await res.json();
+                
+                if (!mapGeral) inicializarMapaGeral();
+                
+                camadasMarkers.forEach(m => mapGeral.removeLayer(m));
+                camadasMarkers = [];
+
+                if (dados.comercios) {
+                    dados.comercios.forEach(c => {
+                        const marker = L.marker([c.lat, c.lon]).addTo(mapGeral)
+                            .bindPopup(`<b>🏪 Comércio:</b> ${c.nome}`);
+                        camadasMarkers.push(marker);
+                    });
                 }
-            } catch(e) {
-                document.getElementById('login-erro').innerText = "Erro de conexão.";
+
+                if (dados.motoboys) {
+                    Object.keys(dados.motoboys).forEach(nome => {
+                        const mb = dados.motoboys[nome];
+                        const marker = L.marker([mb.lat, mb.lon]).addTo(mapGeral)
+                            .bindPopup(`<b>🛵 Motoboy:</b> ${nome}<br><b>Estado:</b> ${mb.status}`);
+                        camadasMarkers.push(marker);
+                    });
+                }
+
+                const container = document.getElementById("lista-admin");
+                const pedidos = dados.pedidos;
+
+                if (!pedidos || pedidos.length === 0) {
+                    container.innerHTML = "<p>Nenhum pedido registado.</p>";
+                    return;
+                }
+
+                container.innerHTML = pedidos.map(p => `
+                    <div class="card-pedido">
+                        <h4>Pedido #${p.id} - ${p.comercio_nome}</h4>
+                        <p><strong>Retirada:</strong> ${p.endereco_retirada} | <strong>Entrega:</strong> ${p.endereco_entrega}</p>
+                        <p><strong>Valor:</strong> R$ ${p.valor} | <strong>Estado:</strong> <span class="status-${p.status}">${p.status.toUpperCase()}</span></p>
+                        
+                        ${(p.mensagens && p.mensagens.length > 0) ? `
+                            <div class="log-chat">
+                                <strong>Histórico de Comunicação / Alertas:</strong><br>
+                                ${p.mensagens.map(m => `
+                                    <div class="${m.texto.includes('ALERTA') || m.texto.includes('URGENTE') ? 'alerta-destaque' : ''}">
+                                        • <strong>${m.remetente}:</strong> ${m.texto}
+                                    </div>
+                                `).join("")}
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join("");
+            } catch (err) {
+                console.error("Erro ao carregar dados do admin:", err);
             }
         }
 
-        function sair() { window.location.reload(); }
-
-        function inicializarMapa() {
-            if(!map) {
-                map = L.map('map').setView([-26.1264, -48.6183], 13);
-                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                    maxZoom: 19,
-                    attribution: 'Tiles &copy; Esri'
-                }).addTo(map);
-                L.marker([-26.1264, -48.6183]).addTo(map).bindPopup('<b>Entregas Já</b><br/>Base').openPopup();
-            }
-        }
-
-        async function carregarTudo() {
-            const resGeral = await fetch('/api/admin/dados-gerais');
-            const dados = await resGeral.json();
-            document.getElementById('stat-motoboys').innerText = dados.total_motoboys;
-            document.getElementById('stat-comercios').innerText = dados.total_comercios;
-            carregarMotoboys();
-            carregarComercios();
-        }
-
-        // MOTOBOYS
-        async function carregarMotoboys() {
-            const res = await fetch('/api/admin/motoboys');
-            const lista = await res.json();
-            let tbody = '';
-            lista.forEach(m => {
-                tbody += `<tr>
-                    <td>${m.nome}</td>
-                    <td>${m.veiculo}</td>
-                    <td>${m.telefone || ''}</td>
-                    <td>${m.senha ? '••••••' : 'Sem senha'}</td>
-                    <td>${m.status}</td>
-                    <td>
-                        <button class="btn" onclick="prepararEditarMotoboy('${m.id}', '${m.nome}', '${m.veiculo}', '${m.telefone || ''}', '${m.senha || ''}')">Editar</button>
-                        <button class="btn btn-danger" onclick="excluirMotoboy('${m.id}')">Excluir</button>
-                    </td>
-                </tr>`;
-            });
-            document.getElementById('tabela-motoboys').innerHTML = tbody;
-        }
-
-        async function salvarMotoboy() {
-            const id = document.getElementById('moto-edit-id').value;
-            const nome = document.getElementById('moto-nome').value;
-            const veiculo = document.getElementById('moto-veiculo').value;
-            const telefone = document.getElementById('moto-telefone').value;
-            const senha = document.getElementById('moto-senha').value;
-
-            const dados = {nome, veiculo, telefone, senha};
-            let url = '/api/admin/motoboys';
-            let method = 'POST';
-            if(id) { url += `/${id}`; method = 'PUT'; }
-
-            const res = await fetch(url, {
-                method: method,
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(dados)
-            });
-
-            if(res.ok) {
-                document.getElementById('moto-edit-id').value = '';
-                document.getElementById('moto-nome').value = '';
-                document.getElementById('moto-veiculo').value = '';
-                document.getElementById('moto-telefone').value = '';
-                document.getElementById('moto-senha').value = '';
-                carregarTudo();
-            } else { alert('Erro ao salvar motoboy.'); }
-        }
-
-        function prepararEditarMotoboy(id, nome, veiculo, telefone, senha) {
-            document.getElementById('moto-edit-id').value = id;
-            document.getElementById('moto-nome').value = nome;
-            document.getElementById('moto-veiculo').value = veiculo;
-            document.getElementById('moto-telefone').value = telefone;
-            document.getElementById('moto-senha').value = senha;
-        }
-
-        async function excluirMotoboy(id) {
-            if(confirm('Excluir motoboy?')) {
-                await fetch(`/api/admin/motoboys/${id}`, {method: 'DELETE'});
-                carregarTudo();
-            }
-        }
-
-        // COMÉRCIOS
-        async function carregarComercios() {
-            const res = await fetch('/api/admin/comercios');
-            const lista = await res.json();
-            let tbody = '';
-            lista.forEach(c => {
-                tbody += `<tr>
-                    <td>${c.nome}</td>
-                    <td>${c.endereco}</td>
-                    <td>${c.categoria}</td>
-                    <td>${c.senha ? '••••••' : 'Sem senha'}</td>
-                    <td>
-                        <button class="btn" onclick="prepararEditarComercio('${c.id}', '${c.nome}', '${c.endereco}', '${c.categoria}', '${c.senha || ''}')">Editar</button>
-                        <button class="btn btn-danger" onclick="excluirComercio('${c.id}')">Excluir</button>
-                    </td>
-                </tr>`;
-            });
-            document.getElementById('tabela-comercios').innerHTML = tbody;
-        }
-
-        async function salvarComercio() {
-            const id = document.getElementById('com-edit-id').value;
-            const nome = document.getElementById('com-nome').value;
-            const endereco = document.getElementById('com-endereco').value;
-            const categoria = document.getElementById('com-categoria').value;
-            const senha = document.getElementById('com-senha').value;
-
-            const dados = {nome, endereco, categoria, senha};
-            let url = '/api/admin/comercios';
-            let method = 'POST';
-            if(id) { url += `/${id}`; method = 'PUT'; }
-
-            const res = await fetch(url, {
-                method: method,
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(dados)
-            });
-
-            if(res.ok) {
-                document.getElementById('com-edit-id').value = '';
-                document.getElementById('com-nome').value = '';
-                document.getElementById('com-endereco').value = '';
-                document.getElementById('com-categoria').value = '';
-                document.getElementById('com-senha').value = '';
-                carregarTudo();
-            } else { alert('Erro ao salvar comércio.'); }
-        }
-
-        function prepararEditarComercio(id, nome, endereco, categoria, senha) {
-            document.getElementById('com-edit-id').value = id;
-            document.getElementById('com-nome').value = nome;
-            document.getElementById('com-endereco').value = endereco;
-            document.getElementById('com-categoria').value = categoria;
-            document.getElementById('com-senha').value = senha;
-        }
-
-        async function excluirComercio(id) {
-            if(confirm('Excluir comércio?')) {
-                await fetch(`/api/admin/comercios/${id}`, {method: 'DELETE'});
-                carregarTudo();
-            }
-        }
+        inicializarMapaGeral();
+        carregarAdmin();
+        setInterval(carregarAdmin, 5000);
     </script>
 </body>
 </html>
