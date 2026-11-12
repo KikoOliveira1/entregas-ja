@@ -1,95 +1,110 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Central do Motoboy - Entregas Já</title>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        .container { background: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 350px; }
-        h2 { color: #1e293b; margin-top: 0; text-align: center; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; font-size: 14px; }
-        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-        .btn { background-color: #2563eb; color: white; border: none; padding: 10px; width: 100%; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; }
-        .btn:hover { background-color: #1d4ed8; }
-        #mensagem-erro { color: red; font-size: 13px; text-align: center; margin-top: 10px; }
-        #painel-logado { display: none; text-align: center; }
+        body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h2 { color: #333; text-align: center; }
+        .user-info { text-align: center; background: #e9ecef; padding: 12px; border-radius: 6px; margin-bottom: 15px; }
+        .status-box { text-align: center; background: #e2f0d9; padding: 10px; border-radius: 6px; margin-bottom: 20px; }
+        .status-box select { padding: 6px; border-radius: 4px; font-weight: bold; border: 1px solid #ccc; }
+        .card-pedido { border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-bottom: 15px; background: #fafafa; }
+        .card-pedido h4 { margin: 0 0 10px 0; color: #007bff; }
+        .btn { border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 8px; }
+        .btn-aceitar { background-color: #28a745; color: white; }
+        .btn-whats { background-color: #25d366; color: white; text-align: center; display: block; text-decoration: none; box-sizing: border-box; padding: 10px; border-radius: 5px; margin-top: 8px; font-weight: bold;}
+        .btn-sair { background-color: #dc3545; color: white; margin-top: 20px; }
     </style>
 </head>
 <body>
-
     <div class="container">
-        <!-- Ecrã de Login -->
-        <div id="ecra-login">
-            <h2>Central do Motoboy 🏍️</h2>
-            <p style="text-align: center; color: #666; font-size: 13px;">Login do Motoboy</p>
-            
-            <div class="form-group">
-                <label for="utilizador">Utilizador:</label>
-                <input type="text" id="utilizador" placeholder="Ex: KikoOliveira">
-            </div>
-
-            <div class="form-group">
-                <label for="senha">Palavra-passe:</label>
-                <input type="password" id="senha" placeholder="Sua senha">
-            </div>
-
-            <button class="btn" onclick="fazerLoginMotoboy()">Entrar</button>
-            <div id="mensagem-erro"></div>
+        <h2>Central do Motoboy 🛵</h2>
+        
+        <div class="user-info">
+            <strong>Bem-vindo, KikoOliveira!</strong><br>
+            Veículo: Start Preta QIL8F44
         </div>
 
-        <!-- Painel Interno do Motoboy (Aparece após o login) -->
-        <div id="painel-logado">
-            <h2>Bem-vindo, <span id="nome-motoboy"></span>! 🛵</h2>
-            <p>Veículo: <b id="veiculo-motoboy"></b></p>
-            <p>Status atual: <b id="status-motoboy" style="color: green;">Online</b></p>
-            <button class="btn" style="background-color: #dc2626; margin-top: 15px;" onclick="sair()">Terminar Sessão</button>
+        <div class="status-box">
+            <label for="select-status"><strong>Meu Estado:</strong></label>
+            <select id="select-status" onchange="atualizarStatus(this.value)">
+                <option value="offline">Offline</option>
+                <option value="disponivel">Disponível</option>
+                <option value="em_entrega">Em Entrega</option>
+            </select>
         </div>
+
+        <h3>Pedidos Disponíveis</h3>
+        <div id="lista-pedidos">Buscando pedidos...</div>
+
+        <button class="btn btn-sair" onclick="location.href='index.html'">Terminar Sessão</button>
     </div>
 
     <script>
-        async function fazerLoginMotoboy() {
-            const utilizador = document.getElementById('utilizador').value.trim();
-            const senha = document.getElementById('senha').value.trim();
-            const erroDiv = document.getElementById('mensagem-erro');
+        const API_URL = "https://entregas-ja.onrender.com";
 
-            erroDiv.innerText = "";
-
-            if (!utilizador || !senha) {
-                erroDiv.innerText = "Por favor, preencha todos os campos.";
-                return;
-            }
-
+        async function carregarPedidos() {
             try {
-                const response = await fetch('/api/login/motoboy', {
+                const res = await fetch(`${API_URL}/api/pedidos/disponiveis`);
+                const pedidos = await res.json();
+                const container = document.getElementById("lista-pedidos");
+
+                if (!pedidos || pedidos.length === 0) {
+                    container.innerHTML = "<p>Nenhum pedido pendente no momento.</p>";
+                    return;
+                }
+
+                container.innerHTML = pedidos.map(p => `
+                    <div class="card-pedido">
+                        <h4>Pedido #${p.id || '---'} - ${p.comercio_nome || 'Comércio'}</h4>
+                        <p><strong>Origem:</strong> ${p.endereco_retirada || 'Não informado'}</p>
+                        <p><strong>Destino:</strong> ${p.endereco_entrega || 'Não informado'}</p>
+                        <p><strong>Taxa de Entrega:</strong> R$ ${p.valor || '0,00'}</p>
+                        
+                        ${p.status === 'pendente' ? `
+                            <button class="btn btn-aceitar" onclick="aceitarPedido('${p.id}')">Aceitar Pedido</button>
+                        ` : `
+                            <p style="color: green; font-weight: bold;">Pedido Aceito por você!</p>
+                            <a href="https://wa.me/55${p.telefone_comercio || ''}?text=Olá,%20sou%20o%20motoboy%20e%20aceitei%20o%20pedido%20${p.id}" 
+                               target="_blank" class="btn btn-whats">Falar com Comerciante (WhatsApp)</a>
+                        `}
+                    </div>
+                `).join("");
+            } catch (err) {
+                document.getElementById("lista-pedidos").innerHTML = "<p>Erro ao carregar pedidos.</p>";
+            }
+        }
+
+        async function aceitarPedido(id) {
+            try {
+                const res = await fetch(`${API_URL}/api/pedidos/aceitar/${id}`, { method: 'POST' });
+                const data = await res.json();
+                alert(data.message || "Pedido aceito!");
+                carregarPedidos();
+            } catch (err) {
+                alert("Erro ao aceitar pedido.");
+            }
+        }
+
+        async function atualizarStatus(novoStatus) {
+            try {
+                const res = await fetch(`${API_URL}/api/motoboy/status`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ utilizador, senha })
+                    body: JSON.stringify({ status: novoStatus, motoboy: "KikoOliveira" })
                 });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    // Esconde login e mostra o painel do motoboy
-                    document.getElementById('ecra-login').style.display = 'none';
-                    document.getElementById('painel-logado').style.display = 'block';
-                    
-                    document.getElementById('nome-motoboy').innerText = data.motoboy.nome;
-                    document.getElementById('veiculo-motoboy').innerText = data.motoboy.veiculo;
-                    document.getElementById('status-motoboy').innerText = data.motoboy.status;
-                } else {
-                    erroDiv.innerText = data.detail || "Erro ao efetuar login.";
-                }
-            } catch (error) {
-                console.error("Erro:", error);
-                erroDiv.innerText = "Não foi possível ligar ao servidor.";
+                const data = await res.json();
+                console.log("Status atualizado:", data);
+            } catch (err) {
+                alert("Erro ao atualizar o estado.");
             }
         }
 
-        function sair() {
-            window.location.reload();
-        }
+        carregarPedidos();
+        setInterval(carregarPedidos, 10000); // Atualiza os pedidos a cada 10 segundos
     </script>
 </body>
 </html>
