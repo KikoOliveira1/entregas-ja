@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Painel do Comerciante - Entregas Já</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1, h2 { color: #28a745; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-weight: bold; margin-bottom: 4px; }
+        input { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { background-color: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #218838; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px; }
+        th { background-color: #28a745; color: white; }
+        .section { background: #f9f9f9; padding: 15px; margin-bottom: 20px; border-radius: 6px; border-left: 4px solid #28a745; }
+        .logout-btn { background-color: #dc3545; float: right; padding: 5px 10px; font-size: 12px; }
+        .logout-btn:hover { background-color: #c82333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Ecrã de Login -->
+        <div id="painel-login">
+            <h1>Login do Comerciante 🏪</h1>
+            <div class="form-group">
+                <label>Utilizador:</label>
+                <input type="text" id="login-usuario" placeholder="Insira o seu utilizador">
+            </div>
+            <div class="form-group">
+                <label>Palavra-passe:</label>
+                <input type="password" id="login-senha" placeholder="Insira a sua senha">
+            </div>
+            <button onclick="fazerLogin()">Entrar na Central</button>
+        </div>
+
+        <!-- Painel Principal (Aparece após login) -->
+        <div id="painel-conteudo" style="display: none;">
+            <button class="logout-btn" onclick="fazerLogout()">Terminar Sessão</button>
+            <h1 id="titulo-comercio">Painel do Comerciante</h1>
+            <p>Gerencie os seus pedidos e crie novas entregas para os motoboys.</p>
+
+            <div class="section">
+                <h2>Criar Novo Pedido de Entrega 📦</h2>
+                <div class="form-group">
+                    <label>Endereço de Recolha (Seu Comércio):</label>
+                    <input type="text" id="p_recolha" placeholder="Ex: Rua Principal, 100">
+                </div>
+                <div class="form-group">
+                    <label>Endereço de Destino (Cliente):</label>
+                    <input type="text" id="p_destino" placeholder="Ex: Rua das Flores, 452">
+                </div>
+                <div class="form-group">
+                    <label>Descrição do Pedido / Itens:</label>
+                    <input type="text" id="p_descricao" placeholder="Ex: 1x Pizza Margherita e 1x Coca-Cola">
+                </div>
+                <div class="form-group">
+                    <label>Taxa de Entrega (R$):</label>
+                    <input type="text" id="p_taxa" placeholder="Ex: 10.00">
+                </div>
+                <button onclick="criarPedido()">Lançar Pedido para Motoboys</button>
+            </div>
+
+            <div class="section">
+                <h2>Meus Pedidos Registados</h2>
+                <button onclick="carregarMeusPedidos()" style="background-color: #007bff; margin-bottom: 10px; padding: 6px 12px; font-size: 13px;">Atualizar Lista</button>
+                <div id="tabela-meus-pedidos">A carregar pedidos...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let usuarioLogado = localStorage.getItem("comercio_usuario") || "";
+
+        // Se já houver sessão guardada, entra direto
+        if (usuarioLogado) {
+            document.getElementById("painel-login").style.display = "none";
+            document.getElementById("painel-conteudo").style.display = "block";
+            document.getElementById("titulo-comercio").innerText = `Painel do Comerciante: ${localStorage.getItem("comercio_nome") || usuarioLogado}`;
+            carregarMeusPedidos();
+            setInterval(carregarMeusPedidos, 5000); // Atualiza os pedidos a cada 5 segundos
+        }
+
+        async function fazerLogin() {
+            const usuario = document.getElementById("login-usuario").value;
+            const senha = document.getElementById("login-senha").value;
+
+            try {
+                const res = await fetch("/api/comerciante/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ usuario, senha })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem("comercio_usuario", data.usuario);
+                    localStorage.setItem("comercio_nome", data.nome);
+                    
+                    document.getElementById("painel-login").style.display = "none";
+                    document.getElementById("painel-conteudo").style.display = "block";
+                    document.getElementById("titulo-comercio").innerText = `Painel do Comerciante: ${data.nome}`;
+                    
+                    carregarMeusPedidos();
+                    setInterval(carregarMeusPedidos, 5000);
+                } else {
+                    alert("Utilizador ou palavra-passe incorretos.");
+                }
+            } catch (err) {
+                alert("Erro ao conectar com o servidor.");
+            }
+        }
+
+        function fazerLogout() {
+            localStorage.removeItem("comercio_usuario");
+            localStorage.removeItem("comercio_nome");
+            location.reload();
+        }
+
+        async function criarPedido() {
+            const dados = {
+                endereco_recolha: document.getElementById("p_recolha").value,
+                endereco_destino: document.getElementById("p_destino").value,
+                descricao_pedido: document.getElementById("p_descricao").value,
+                taxa_entrega: document.getElementById("p_taxa").value
+            };
+
+            try {
+                const res = await fetch("/api/comerciante/pedidos", {
+                    method: "POST",
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "x-usuario": localStorage.getItem("comercio_usuario")
+                    },
+                    body: JSON.stringify(dados)
+                });
+
+                if (res.ok) {
+                    alert("Pedido criado e enviado para os motoboys com sucesso!");
+                    document.getElementById("p_destino").value = "";
+                    document.getElementById("p_descricao").value = "";
+                    document.getElementById("p_taxa").value = "";
+                    carregarMeusPedidos();
+                } else {
+                    alert("Erro ao criar pedido.");
+                }
+            } catch (err) {
+                alert("Erro de conexão ao criar pedido.");
+            }
+        }
+
+        async function carregarMeusPedidos() {
+            const usuario = localStorage.getItem("comercio_usuario");
+            if (!usuario) return;
+
+            try {
